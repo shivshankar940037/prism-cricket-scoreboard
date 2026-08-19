@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRISM Auto Cricket Scoreboard</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#07111f;
+  color:white;
+  font-family:Arial,sans-serif;
+}
+.wrap{
+  width:100%;
+  max-width:900px;
+  margin:auto;
+  padding:18px;
+}
+.header{
+  text-align:center;
+  font-size:28px;
+  font-weight:bold;
+  padding:10px;
+}
+.status{
+  text-align:center;
+  font-size:14px;
+  opacity:.8;
+  margin-bottom:12px;
+}
+.card{
+  background:#102238;
+  border-radius:18px;
+  padding:18px;
+  margin-bottom:14px;
+}
+.teams{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:15px;
+}
+.team{
+  width:45%;
+  text-align:center;
+  font-size:22px;
+  font-weight:bold;
+}
+.vs{
+  font-size:15px;
+  opacity:.6;
+}
+.score{
+  text-align:center;
+  font-size:42px;
+  font-weight:bold;
+  margin:12px 0;
+}
+.note{
+  text-align:center;
+  font-size:17px;
+}
+.section{
+  font-size:20px;
+  font-weight:bold;
+  margin-bottom:10px;
+}
+.row{
+  display:flex;
+  justify-content:space-between;
+  padding:8px 0;
+  border-bottom:1px solid #29405a;
+}
+.small{
+  font-size:13px;
+  opacity:.7;
+}
+.ball{
+  display:inline-block;
+  padding:7px 10px;
+  margin:3px;
+  border-radius:8px;
+  background:#1d3854;
+}
+.error{
+  text-align:center;
+  padding:20px;
+  color:#ffb3b3;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <div class="header">🏏 LIVE CRICKET</div>
+
+  <div id="status" class="status">
+    Connecting to Sportmonks...
+  </div>
+
+  <div id="match"></div>
+
+</div>
+
+<script>
+
+const API_TOKEN = "PASTE_YOUR_SPORTMONKS_TOKEN_HERE";
+
+const API =
+"https://cricket.sportmonks.com/api/v2.0/livescores/now" +
+"?api_token=" + encodeURIComponent(API_TOKEN) +
+"&include=localteam,visitorteam,scoreboards,runs,batting,bowling,balls,lineup";
+
+let lastFixtureId = null;
+
+function arr(x){
+  if(!x) return [];
+  if(Array.isArray(x)) return x;
+  if(x.data && Array.isArray(x.data)) return x.data;
+  return [];
+}
+
+function nameOf(x){
+  if(!x) return "Unknown";
+  return x.fullname || x.name || x.player_name || x.batsman_name ||
+         x.bowler_name || "Unknown";
+}
+
+function playerName(x){
+  if(!x) return "Unknown";
+  return nameOf(x.player || x.batsman || x.bowler) ||
+         x.player_name || x.batsman_name || x.bowler_name ||
+         "Unknown";
+}
+
+function teamName(x){
+  if(!x) return "Team";
+  return x.name || x.code || "Team";
+}
+
+function renderMessage(text){
+  document.getElementById("match").innerHTML =
+    '<div class="card"><div class="error">'+text+'</div></div>';
+}
+
+function findLatestBall(balls){
+  if(!balls.length) return null;
+  return balls[balls.length - 1];
+}
+
+function render(fixture){
+
+  const local =
+    fixture.localteam ||
+    fixture.localTeam ||
+    {};
+
+  const visitor =
+    fixture.visitorteam ||
+    fixture.visitorTeam ||
+    {};
+
+  const scoreboards = arr(fixture.scoreboards);
+  const runs = arr(fixture.runs);
+  const batting = arr(fixture.batting);
+  const bowling = arr(fixture.bowling);
+  const balls = arr(fixture.balls);
+
+  let scoreText = "Score updating...";
+
+  if(scoreboards.length){
+    const last = scoreboards[scoreboards.length-1];
+
+    const total =
+      last.total ??
+      last.score ??
+      last.runs ??
+      0;
+
+    const wickets =
+      last.wickets ??
+      last.wickets_lost ??
+      0;
+
+    const overs =
+      last.overs ??
+      "0";
+
+    scoreText = `${total}/${wickets} (${overs} ov)`;
+  }
+
+  if(runs.length){
+    const r = runs[runs.length-1];
+
+    const total =
+      r.score ??
+      r.runs ??
+      r.total ??
+      null;
+
+    const wickets =
+      r.wickets ??
+      r.wickets_lost ??
+      null;
+
+    const overs =
+      r.overs ??
+      null;
+
+    if(total !== null){
+      scoreText =
+        `${total}/${wickets ?? 0}` +
+        (overs !== null ? ` (${overs} ov)` : "");
+    }
+  }
+
+  const activeBatters = batting
+    .filter(x => x.active === true || x.active === 1 || x.out === false)
+    .slice(-2);
+
+  const recentBatters =
+    activeBatters.length ? activeBatters : batting.slice(-2);
+
+  const bowlers = bowling.slice(-3);
+
+  const latestBall = findLatestBall(balls);
+
+  let html = `
+
+    <div class="card">
+
+      <div class="teams">
+        <div class="team">${teamName(local)}</div>
+        <div class="vs">VS</div>
+        <div class="team">${teamName(visitor)}</div>
+      </div>
+
+      <div class="score">${scoreText}</div>
+
+      <div class="note">
+        ${fixture.status || fixture.note || "LIVE"}
+      </div>
+
+    </div>
+
+  `;
+
+  if(recentBatters.length){
+
+    html += `
+      <div class="card">
+        <div class="section">🏏 Batting</div>
+    `;
+
+    recentBatters.forEach(b => {
+
+      html += `
+        <div class="row">
+          <span>${playerName(b)}</span>
+          <span>
+            ${b.score ?? b.runs ?? 0}
+            (${b.ball ?? b.balls ?? 0})
+          </span>
+        </div>
+      `;
+
+    });
+
+    html += `</div>`;
+  }
+
+  if(bowlers.length){
+
+    html += `
+      <div class="card">
+        <div class="section">🎯 Bowling</div>
+    `;
+
+    bowlers.forEach(b => {
+
+      html += `
+        <div class="row">
+          <span>${playerName(b)}</span>
+          <span>
+            ${b.overs ?? 0} ov
+            • ${b.runs ?? 0} runs
+            • ${b.wickets ?? 0} wkts
+          </span>
+        </div>
+      `;
+
+    });
+
+    html += `</div>`;
+  }
+
+  if(latestBall){
+
+    html += `
+      <div class="card">
+        <div class="section">⚡ Latest Ball</div>
+
+        <div class="note">
+          ${latestBall.runs ?? latestBall.score ?? 0} runs
+        </div>
+
+        <div class="small">
+          Ball ID: ${latestBall.id ?? "-"}
+        </div>
+      </div>
+    `;
+  }
+
+  if(balls.length){
+
+    const recentBalls = balls.slice(-8);
+
+    html += `
+      <div class="card">
+        <div class="section">🔴 Recent Balls</div>
+    `;
+
+    recentBalls.forEach(b => {
+
+      const value =
+        b.runs ??
+        b.score ??
+        b.result ??
+        "•";
+
+      html += `<span class="ball">${value}</span>`;
+
+    });
+
+    html += `</div>`;
+  }
+
+  document.getElementById("match").innerHTML = html;
+
+  document.getElementById("status").innerText =
+    "LIVE • Auto updating every 10 seconds";
+
+  lastFixtureId = fixture.id;
+}
+
+async function loadScore(){
+
+  if(!API_TOKEN ||
+     API_TOKEN === "PASTE_YOUR_SPORTMONKS_TOKEN_HERE"){
+
+    renderMessage(
+      "Sportmonks API Token अभी index.html में डालना बाकी है."
+    );
+
+    document.getElementById("status").innerText =
+      "Waiting for API Token";
+
+    return;
+  }
+
+  try{
+
+    const response = await fetch(API);
+
+    const json = await response.json();
+
+    if(json.error){
+
+      renderMessage(
+        json.message || "Sportmonks API error"
+      );
+
+      return;
+    }
+
+    const fixtures = arr(json.data);
+
+    if(!fixtures.length){
+
+      renderMessage(
+        "अभी कोई Live Cricket match उपलब्ध नहीं है."
+      );
+
+      document.getElementById("status").innerText =
+        "Waiting for a live match...";
+
+      return;
+    }
+
+    // Automatically choose the first currently available live match.
+    render(fixtures[0]);
+
+  }catch(error){
+
+    renderMessage(
+      "Connection error. Sportmonks data नहीं मिल रहा."
+    );
+
+    document.getElementById("status").innerText =
+      "Connection error";
+
+  }
+}
+
+loadScore();
+
+setInterval(loadScore,10000);
+
+</script>
+
+</body>
+  </html>
