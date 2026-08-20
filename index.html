@@ -367,7 +367,9 @@ async function loadScore(){
 
     const response = await fetch(API);
 
-    const json = await response.json();document.getElementById("status").innerText =
+    const json = await response.json();
+
+document.getElementById("status").innerText =
   "Sportmonks connected";
 
     if(json.error){
