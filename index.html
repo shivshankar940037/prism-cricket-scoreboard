@@ -350,18 +350,10 @@ function render(fixture){
 
 async function loadScore(){
 
-  if(!API_TOKEN ||
+  
      API_TOKEN === "PASTE_YOUR_SPORTMONKS_TOKEN_HERE"){
 
-    renderMessage(
-      "Sportmonks API Token अभी index.html में डालना बाकी है."
-    );
-
-    document.getElementById("status").innerText =
-      "Waiting for API Token";
-
-    return;
-  }
+    
 
   try{
 
